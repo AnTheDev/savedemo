@@ -1,5 +1,6 @@
 import openai
 import openai.error
+from together import Together
 from typing import List, Dict
 from config import OPENAI_APIS, GPT4_API
 import logging
@@ -20,9 +21,9 @@ encoder = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
 tokens_sent = Value("d", 0)
 tokens_received = Value("d", 0)
-tokens_sent_gpt4 = Value("d", 0)
-tokens_received_gpt4 = Value("d", 0)
 
+
+client = Together(api_key="6e95414adc1c7c36dad8621361eb0ae84b13d435d5e42609654c34c07912ff18")
 
 class Chat:
     def __init__(self) -> None:
@@ -41,20 +42,8 @@ class Chat:
         self.currentSession.append({"role": "user", "content": message})
         while True:
             try:
-                if GPT4:
-                    openai.api_key = GPT4_API
-                    response = openai.ChatCompletion.create(
-                        # model="gpt-3.5-turbo-0301",
-                        # model="gpt-3.5-turbo-0613",
-                        # model="gpt-3.5-turbo",
-                        model="gpt-4",
-                        messages = self.currentSession,
-                        temperature = 0,
-                        top_p = 1.0
-                    )
-                else:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
+                response = client.chat.completions.create(
+                        model="openai/gpt-oss-20b",
                         # model="gpt-3.5-turbo-0613",
                         # model="gpt-3.5-turbo",
                         # model="gpt-4",
@@ -63,20 +52,20 @@ class Chat:
                         top_p = 1.0
                     )
                 break
-            except openai.error.RateLimitError as e1:
+            except client.error.RateLimitError as e1:
                 logger.warning("Trigger rate limit error, sleep 30 sec")
                 time.sleep(30)
-            except openai.InvalidRequestError as e2:
+            except client.InvalidRequestError as e2:
                 if e2.code == 'context_length_exceeded':
                     logger.error("Too long context, skip")
                     return "KeySentence: "
                 else:
                     logger.warning("Retry")
-            except openai.error.APIConnectionError as e3:
+            except client.error.APIConnectionError as e3:
                 logger.warning("API Connection Error, Retry")
-            except openai.error.Timeout as e4:
+            except client.error.Timeout as e4:
                 logger.warning("Timeout, Retry")
-            except openai.error.APIError as e5:
+            except client.error.APIError as e5:
                 if "502" in e5._message:
                     logger.warning("502 Bad Gateway, Retry")
                     logger.warning(traceback.format_exc())
@@ -87,27 +76,21 @@ class Chat:
         #     # temperature = 0.3
         # )
 
-        if GPT4:
-            global tokens_sent_gpt4
-            global tokens_received_gpt4
 
-            tokens_sent_gpt4.value += len(encoder.encode(SYSTEM_MESSAGE))
-            tokens_sent_gpt4.value += len(encoder.encode(message))
-            tokens_received_gpt4.value += len(encoder.encode(response['choices'][0]['message']['content']))
-        else:
-            global tokens_sent
-            global tokens_received
+        global tokens_sent
+        global tokens_received
 
-            tokens_sent.value += len(encoder.encode(SYSTEM_MESSAGE))
-            tokens_sent.value += len(encoder.encode(message))
-            tokens_received.value += len(encoder.encode(response['choices'][0]['message']['content']))
+        tokens_sent.value += len(encoder.encode(SYSTEM_MESSAGE))
+        tokens_sent.value += len(encoder.encode(message))
+        resp_dict = response.model_dump()
+        tokens_received.value += len(encoder.encode(resp_dict['choices'][0]['message']['content']))
 
-        self.currentSession.append(response['choices'][0]['message'])
+        self.currentSession.append(resp_dict['choices'][0]['message'])
 
-        console.print(rich_utils.make_response_panel(response['choices'][0]['message']['content'], "Response"))
+        console.print(rich_utils.make_response_panel(resp_dict['choices'][0]['message']['content'], "Response"))
         
 
-        return response['choices'][0]['message']['content']
+        return resp_dict['choices'][0]['message']['content']
     
     def makeYesOrNoQuestion(self, question:str)->str:
         prompt = f"{question}. Please answer in one word, yes or no."

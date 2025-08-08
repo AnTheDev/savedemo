@@ -23,7 +23,7 @@ tokens_sent = Value("d", 0)
 tokens_received = Value("d", 0)
 
 
-client = Together(api_key="6e95414adc1c7c36dad8621361eb0ae84b13d435d5e42609654c34c07912ff18")
+client = Together(api_key="XXXXXXXXXXXXXXXXXXXXXXXX")
 
 class Chat:
     def __init__(self) -> None:

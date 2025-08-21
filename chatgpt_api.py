@@ -1,12 +1,10 @@
 import openai
-import openai.error
 from together import Together
+import openai.error
 from typing import List, Dict
-from config import OPENAI_APIS, GPT4_API
 import logging
 import time
 import traceback
-import tiktoken
 from multiprocessing import Value
 import rich
 import rich_utils
@@ -15,15 +13,6 @@ logger = logging.getLogger(__name__)
 console = rich.get_console()
 
 SYSTEM_MESSAGE = "You are a smart contract auditor. You will be asked questions related to code properties. You can mimic answering them in the background five times and provide me with the most frequently appearing answer. Furthermore, please strictly adhere to the output format specified in the question; there is no need to explain your answer."
-
-encoder = tiktoken.get_encoding("cl100k_base")
-encoder = tiktoken.encoding_for_model("gpt-3.5-turbo")
-
-tokens_sent = Value("d", 0)
-tokens_received = Value("d", 0)
-
-
-client = Together(api_key="XXXXXXXXXXXXXXXXXXXXXXXX")
 
 class Chat:
     def __init__(self) -> None:
@@ -42,55 +31,39 @@ class Chat:
         self.currentSession.append({"role": "user", "content": message})
         while True:
             try:
+                client = Together() 
                 response = client.chat.completions.create(
-                        model="openai/gpt-oss-20b",
-                        # model="gpt-3.5-turbo-0613",
-                        # model="gpt-3.5-turbo",
-                        # model="gpt-4",
+                        model="openai/gpt-oss-120b",
                         messages = self.currentSession,
                         temperature = 0,
                         top_p = 1.0
                     )
                 break
-            except client.error.RateLimitError as e1:
+            except openai.error.RateLimitError as e1:
                 logger.warning("Trigger rate limit error, sleep 30 sec")
                 time.sleep(30)
-            except client.InvalidRequestError as e2:
+            except openai.InvalidRequestError as e2:
                 if e2.code == 'context_length_exceeded':
                     logger.error("Too long context, skip")
                     return "KeySentence: "
                 else:
                     logger.warning("Retry")
-            except client.error.APIConnectionError as e3:
+            except openai.error.APIConnectionError as e3:
                 logger.warning("API Connection Error, Retry")
-            except client.error.Timeout as e4:
+            except openai.error.Timeout as e4:
                 logger.warning("Timeout, Retry")
-            except client.error.APIError as e5:
+            except openai.error.APIError as e5:
                 if "502" in e5._message:
                     logger.warning("502 Bad Gateway, Retry")
                     logger.warning(traceback.format_exc())
-        # response = openai.Completion.create(
-        #     # model="gpt-3.5-turbo",
-        #     model="text-davinci-003",
-        #     messages = self.currentSession,
-        #     # temperature = 0.3
-        # )
 
+        
+        self.currentSession.append(response.choices[0].message.content)
 
-        global tokens_sent
-        global tokens_received
-
-        tokens_sent.value += len(encoder.encode(SYSTEM_MESSAGE))
-        tokens_sent.value += len(encoder.encode(message))
-        resp_dict = response.model_dump()
-        tokens_received.value += len(encoder.encode(resp_dict['choices'][0]['message']['content']))
-
-        self.currentSession.append(resp_dict['choices'][0]['message'])
-
-        console.print(rich_utils.make_response_panel(resp_dict['choices'][0]['message']['content'], "Response"))
+        console.print(rich_utils.make_response_panel(response.choices[0].message.content, "Response"))
         
 
-        return resp_dict['choices'][0]['message']['content']
+        return response.choices[0].message.content
     
     def makeYesOrNoQuestion(self, question:str)->str:
         prompt = f"{question}. Please answer in one word, yes or no."

@@ -114,7 +114,7 @@ def simple_cli():
     # not need ast, compile first
     # parser.add_argument("-a", "--ast", help="The AST directory", required=True)
     parser.add_argument("-o", "--output", help="The output file", required=True)
-    parser.add_argument("-k", "--gptkey", help="The OpenAI API key", required=True)
+    parser.add_argument("-k", "--getkey", help="The API key", required=True)
     
     
     scan_rules = load_all_rules()
@@ -130,9 +130,9 @@ def simple_cli():
         console.log("[yellow]Since the compilation is failed, some static analysis tool may not be enabled, which may cause lower precision and recall.[/yellow]")
         falcon_instance = None
     output_file = parser.parse_args().output
-    gptkey = parser.parse_args().gptkey
+    getkey = parser.parse_args().getkey
 
-    os.environ["OPENAI_API_KEY"] = gptkey
+    os.environ["TOGETHER_API_KEY"] = getkey
 
     import analyze_pipeline
     import chatgpt_api
@@ -364,11 +364,7 @@ def simple_cli():
     meta_data["vul_after_static"] = num_true    # 静态分析后，结果不为False的数量（之前有不需要静态分析的，现在没了）
     meta_data["vul_after_merge"] = len(output_json["results"])  # 去重后的结果数量
 
-    meta_data["token_sent"] = chatgpt_api.tokens_sent.value # 发送的Token数量
-    meta_data["token_received"] = chatgpt_api.tokens_received.value # 接收的Token数量
-#    meta_data["token_sent_gpt4"] = chatgpt_api.tokens_sent_gpt4.value # 发送的Token数量
-#    meta_data["token_received_gpt4"] = chatgpt_api.tokens_received_gpt4.value # 接收的Token数量
-    meta_data["estimated_cost"] = (meta_data["token_sent"] * global_config.SEND_PRICE) + (meta_data["token_received"] * global_config.RECEIVE_PRICE)# + (meta_data["token_sent_gpt4"] * global_config.GPT4_SEND_PRICE) + (meta_data["token_received_gpt4"] * global_config.GPT4_RECEIVE_PRICE)# 预估的花费
+
 
     for metadata_key, metadata_value in meta_data.copy().items():
         if isinstance(metadata_value, set):
@@ -385,7 +381,6 @@ def simple_cli():
     summary_table.add_row("Functions", str(meta_data["functions"]))
     summary_table.add_row("Lines of Code", str(meta_data["loc"]))
     summary_table.add_row("Used Time", str(meta_data["used_time"]))
-    summary_table.add_row("Estimated Cost (USD)", str(meta_data["estimated_cost"]))
 
     console.print(summary_table)
 

@@ -33,7 +33,7 @@ class Chat:
             try:
                 client = Together() 
                 response = client.chat.completions.create(
-                        model="openai/gpt-oss-120b",
+                        model="openai/gpt-oss-20b",
                         messages = self.currentSession,
                         temperature = 0,
                         top_p = 1.0
